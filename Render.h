@@ -11,8 +11,8 @@
 #include <SFML/Window.hpp>
 
 #include "entity/Model.h"
-#include "render/AnimatedModelShaders.h"
 #include "render/Camera.h"
+#include "render/shaders/AnimatedModelShaders.h"
 
 class Render {
 private:

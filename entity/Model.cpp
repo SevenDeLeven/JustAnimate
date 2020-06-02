@@ -15,7 +15,7 @@
 #include <sstream>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "../entity/animation/Joint.h"
+#include "../render/animation/Joint.h"
 
 #include "../tinyxml/tinyxml.h"
 
@@ -73,7 +73,7 @@ Model* loadCollada(const char* filename) {
 	TiXmlElement* geomBase = colladaBase->FirstChildElement("library_geometries");
 	TiXmlElement* contrBase = colladaBase->FirstChildElement("library_controllers"); //For the Controllers
 	TiXmlElement* controller = contrBase->FirstChildElement();
-	TiXmlElement* skin = contrBase->FirstChildElement();
+	TiXmlElement* skin = controller->FirstChildElement();
 	TiXmlElement* model = geomBase->FirstChildElement();
 	const char* modelName = model->Attribute("id");
 	TiXmlElement* mesh = model->FirstChildElement();
@@ -154,90 +154,134 @@ Model* loadCollada(const char* filename) {
 		}
 	}
 
-//	std::vector<Joint*> joints;
-//	TiXmlElement* jointsAnim = skin->FirstChildElement("source");
-//	{
-//		TiXmlElement* nameArray = skin->FirstChildElement("Name_array");
-//		std::stringstream buff(nameArray->Attribute("count"));
-//		int jointCount;
-//		buff >> jointCount;
-//		buff = std::stringstream(nameArray->GetText());
-//		for (int i = 0; i < jointCount; i++) {
-//			int id = i;
-//			std::string name;
-//			buff >> name;
-//			Joint* j = new Joint(id, name);
-//			joints.push_back(j);
-//		}
-//	}
+	std::vector<Joint*> joints;
+	TiXmlElement* jointsAnim = skin->FirstChildElement("source");
+	{
 
-//	TiXmlElement* bindPoses = jointsAnim->NextSiblingElement();
-//	{
-//		TiXmlElement* matrixData = bindPoses->FirstChildElement("float_array");
-//		std::stringstream buff(matrixData->GetText());
-//		for (int i = 0; i < joints.size(); i++) {
-//			int index = i*16;
-//			float matrixArray[16];
-//			for (int t = 0; t < 16; t++) {
-//				buff >> matrixArray[t];
-//			}
-//
-//			glm::mat4 bindTransform = glm::make_mat4(matrixArray);
-//			joints[i]->setInverseBindTransform(bindTransform);
-//		}
-//	}
+		TiXmlElement* nameArray = jointsAnim->FirstChildElement("Name_array");
+		std::stringstream buff(nameArray->Attribute("count"));
+		int jointCount;
+		buff >> jointCount;
+		buff = std::stringstream(nameArray->GetText());
+		for (int i = 0; i < jointCount; i++) {
+			int id = i;
+			std::string name;
+			buff >> name;
+			Joint* j = new Joint(id, name.c_str());
+			joints.push_back(j);
+		}
+	}
+
+	TiXmlElement* bindPoses = jointsAnim->NextSiblingElement();
+	{
+		TiXmlElement* matrixData = bindPoses->FirstChildElement("float_array");
+		std::stringstream buff(matrixData->GetText());
+		for (unsigned int i = 0; i < joints.size(); i++) {
+			float matrixArray[16];
+			for (int t = 0; t < 16; t++) {
+				buff >> matrixArray[t];
+			}
+
+			glm::mat4 invBindTransform = glm::make_mat4(matrixArray);
+			joints[i]->setInverseBindTransform(invBindTransform);
+		}
+	}
 
 
-//	TiXmlElement* weights = bindPoses->NextSiblingElement("source");
-//	TiXmlElement* vertexWeights = weights->NextSiblingElement("vertex_weights");
-//	int* correctVertexJointIds = new int[vertexCount*3];
-//	float* correctVertexWeights = new float[vertexCount*3];
-//	{
-//		TiXmlElement* weightsArray = weights->FirstChildElement("float_array");
-//		std::stringstream buff(weights->Attribute("count"));
-//		int weightCount;
-//		buff >> weightCount;
-//		buff = std::stringstream(weightsArray->GetText());
-//
-//		float weights[weightCount];
-//
-//		for (int i = 0; i < weightCount; i++) {
-//			buff >> weights[i];
-//		}
-//
-//		int vertexWeightAmounts[vertexCount];
-//		TiXmlElement* vcount = vertexWeights->FirstChildElement("vcount");
-//		buff = std::stringstream(vcount->GetText());
-//		for (int i = 0; i < vertexCount; i++) {
-//			buff >> vertexWeightAmounts[i];
-//		}
-//
-//		TiXmlElement* v = vertexWeights->FirstChildElement("v");
-//		for (int i = 0; i < vertexCount; i++) {
-//			std::vector<int> joints;
-//			std::vector<float> weights;
-//
-//			for (int j = 0; j < vertexWeightAmounts[i]; j++) {
-//				int jointId;
-//				int weightId;
-//				buff >> jointId >> weightId;
-//				joints.push_back(jointId);
-//				weights.push_back(weights[weightId]);
-//			}
-//
-//			for (int j = 0; j < 3-joints.size(); j++) {
-//				joints.push_back(0);
-//				weights.push_back(0);
-//			}
-//
-//			if (joints.size() > 3) {
-//				int njoints[3];
-//				int nweights[3];
-//
-//			}
-//		}
-//
-//	}
+	TiXmlElement* weightsElement = bindPoses->NextSiblingElement("source");
+	TiXmlElement* vertexWeightsElement = weightsElement->NextSiblingElement("vertex_weights");
+	int* correctVertexJointIds = new int[vertexCount*3];
+	float* correctVertexWeights = new float[vertexCount*3];
+	{
+		TiXmlElement* weightsArrayElement = weightsElement->FirstChildElement("float_array");
+		std::stringstream buff(weightsArrayElement->Attribute("count"));
+		int weightCount;
+		buff >> weightCount;
+		buff = std::stringstream(weightsArrayElement->GetText());
+
+		float indexedweights[weightCount];
+
+		for (int i = 0; i < weightCount; i++) {
+			buff >> indexedweights[i];
+		}
+
+		int vertexWeightAmounts[vertexCount];
+		TiXmlElement* vcount = vertexWeightsElement->FirstChildElement("vcount");
+		buff = std::stringstream(vcount->GetText());
+		for (int i = 0; i < vertexCount; i++) {
+			int a;
+			buff >> a;
+			vertexWeightAmounts[i] = a;
+		}
+
+		TiXmlElement* v = vertexWeightsElement->FirstChildElement("v");
+		buff = std::stringstream(v->GetText());
+		for (int i = 0; i < vertexCount; i++) {
+			std::vector<int> joints;
+			std::vector<float> weights;
+
+			std::cout << vertexWeightAmounts[i] << std::endl;
+			for (int j = 0; j < vertexWeightAmounts[i]; j++) {
+				int jointId;
+				int weightId;
+				buff >> jointId >> weightId;
+				joints.push_back(jointId);
+				weights.push_back(indexedweights[weightId]);
+			}
+
+			for (unsigned int j = 0; j < 3-joints.size(); j++) {
+				joints.push_back(0);
+				weights.push_back(0);
+			}
+
+			if (joints.size() > 3) {
+				int njoints[3] = {0};
+				int nweights[3] = {0};
+				for (int ji = 0; ji < vertexWeightAmounts[i]; ji++) {
+					if (weights[ji] > nweights[0]) {
+						nweights[2] = nweights[1];
+						nweights[1] = nweights[0];
+						nweights[0] = weights[ji];
+						njoints[2] = njoints[1];
+						njoints[1] = njoints[0];
+						njoints[0] = joints[ji];
+					} else if (weights[ji] > nweights[1]) {
+						nweights[2] = nweights[1];
+						nweights[1] = weights[ji];
+						njoints[2] = njoints[1];
+						njoints[1] = joints[ji];
+					} else if (weights[ji] > nweights[2]) {
+						nweights[2] = weights[ji];
+						njoints[2] = joints[ji];
+					}
+				}
+				joints = std::vector<int>();
+				weights = std::vector<float>();
+
+				float sumWeights = 0;
+				for (int p = 0; p < 3; p++) {
+					joints.push_back(njoints[p]);
+					weights.push_back(nweights[p]);
+
+					sumWeights += nweights[p];
+				}
+				for (int p = 0; p < 3; p++) {
+					weights[i] /= sumWeights; //Normalize all weights so that they sum up to 1
+				}
+
+			} else {
+				for (unsigned int t = 0; t < 3-joints.size(); t++) {
+					joints.push_back(1);
+					weights.push_back(0);
+				}
+			}
+
+			for (int v = 0; v < 3; v++) {
+				correctVertexJointIds[i*3+v] = joints[v];
+				correctVertexWeights[i*3+v] = weights[v];
+			}
+		}
+	}
 
 
 	GLuint vao;
@@ -259,14 +303,24 @@ Model* loadCollada(const char* filename) {
 	glBindBuffer(GL_ARRAY_BUFFER, uvbo);
 	glBufferData(GL_ARRAY_BUFFER, vertexCount*2*sizeof(float), &correctTex[0], GL_STATIC_DRAW);
 
+	GLuint jointvbo;
+	glGenBuffers(1, &jointvbo);
+	glBindBuffer(GL_ARRAY_BUFFER, jointvbo);
+	glBufferData(GL_ARRAY_BUFFER, vertexCount*3*sizeof(int), &correctVertexJointIds, GL_STATIC_DRAW);
+
+	GLuint weightvbo;
+	glGenBuffers(1, &weightvbo);
+	glBindBuffer(GL_ARRAY_BUFFER, weightvbo);
+	glBufferData(GL_ARRAY_BUFFER, vertexCount*3*sizeof(float), &correctVertexWeights, GL_STATIC_DRAW);
+
 	delete pos;
 	delete norm;
 	delete tex;
 	delete correctPos;
 	delete correctNorm;
 	delete correctTex;
-//	delete correctVertexJointIds;
-//	delete correctVertexWeights;
+	delete correctVertexJointIds;
+	delete correctVertexWeights;
 
 	Model* ret = new Model(vertexCount, vao, vbo, uvbo, nvbo);
 
